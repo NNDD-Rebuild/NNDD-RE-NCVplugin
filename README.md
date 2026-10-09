@@ -23,7 +23,7 @@
 - NNDD-RE (`nndd-re-cmd://` プロトコルが登録されていること。一度起動すれば登録される)
 
 ## インストール
-1. Actions の最新 run の artifact `NNDD-RE` から `NNDD-RE.dll` を取得
+1. 最新の[Releases](https://github.com/NNDD-Rebuild/NNDD-RE-NCVplugin/releases) から `NNDD-RE.dll` を取得
 2. NCV 実行ファイルのフォルダの `Plugins` に `NNDD-RE.dll` だけを置く
    (`NCV_Plugin.dll` / `NCV_Abstractions.dll` は置かない。プラグインとして読まれてエラーになる)
 3. NCV を再起動
@@ -34,5 +34,4 @@
 ./scripts/fetch-libs.sh        # NCV 付属 DLL を src/libs/ に取得
 dotnet build src/NNDD-RE.csproj -c Release -o out
 ```
-NCV 付属 DLL は再配布しないためリポジトリに含めず、公式サンプル ([mororomo/NCV-PluginSample-dotNET10](https://github.com/mororomo/NCV-PluginSample-dotNET10)) から取得する。
-NCV の利用規約に従うこと。
+
