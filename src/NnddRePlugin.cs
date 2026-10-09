@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Reflection;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using NCV_Abstractions;
 using NCV_Plugin;
@@ -25,16 +26,82 @@ namespace NnddRe
         public virtual string Name => "NNDD-RE";
         public virtual string Version => Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "";
         public virtual string Description => "放送に接続したとき NNDD-RE の生放送プレイヤーでも同じ放送を開きます。コメントの右クリックから NNDD-RE の NG リストにも追加できます。";
-        public virtual bool HasSettingForm => false;
-        public virtual void ShowSettingForm() { }
+        public virtual bool HasSettingForm => true;
         public virtual bool IsAutoRun => true;
         public virtual void Run() { }
 
         public virtual void AutoRun()
         {
             if (_host == null) return;
-            _host.LiveConnected += (_, _) => OpenInNnddRe();
+            _launchEnabled = LoadLaunchEnabled();
+            _host.LiveConnected += (_, _) =>
+            {
+                if (_launchEnabled) OpenInNnddRe();
+            };
             AddNgMenu();
+        }
+
+        /// <summary>放送接続時に NNDD-RE でも開く (起動連携) か。既定は ON</summary>
+        private bool _launchEnabled = true;
+
+        private string SettingPath => Path.Combine(_host?.DirectoryPathAppSetting ?? "", "NNDD-RE.json");
+
+        private bool LoadLaunchEnabled()
+        {
+            try
+            {
+                if (!File.Exists(SettingPath)) return true;
+                using var doc = JsonDocument.Parse(File.ReadAllText(SettingPath));
+                return !doc.RootElement.TryGetProperty("launchEnabled", out var v) || v.ValueKind != JsonValueKind.False;
+            }
+            catch
+            {
+                return true;
+            }
+        }
+
+        private void SaveLaunchEnabled(bool enabled)
+        {
+            try
+            {
+                File.WriteAllText(SettingPath, JsonSerializer.Serialize(new { launchEnabled = enabled }));
+            }
+            catch (Exception ex)
+            {
+                _host?.ShowMessageToStatusLabel(this, $"NNDD-RE 連携の設定を保存できません: {ex.Message}", Color.Red);
+            }
+        }
+
+        public virtual void ShowSettingForm()
+        {
+            using var form = new Form
+            {
+                Text = "NNDD-RE 連携の設定",
+                FormBorderStyle = FormBorderStyle.FixedDialog,
+                StartPosition = FormStartPosition.CenterParent,
+                MaximizeBox = false,
+                MinimizeBox = false,
+                ShowInTaskbar = false,
+                ClientSize = new Size(380, 110)
+            };
+            var check = new CheckBox
+            {
+                Text = "放送に接続したとき NNDD-RE でも同じ放送を開く",
+                Checked = _launchEnabled,
+                AutoSize = true,
+                Location = new Point(16, 16)
+            };
+            var ok = new Button { Text = "OK", DialogResult = DialogResult.OK, Location = new Point(212, 66), Size = new Size(75, 28) };
+            var cancel = new Button { Text = "キャンセル", DialogResult = DialogResult.Cancel, Location = new Point(293, 66), Size = new Size(75, 28) };
+            form.Controls.AddRange(new Control[] { check, ok, cancel });
+            form.AcceptButton = ok;
+            form.CancelButton = cancel;
+
+            var owner = _host?.MainForm;
+            if (form.ShowDialog(owner) != DialogResult.OK) return;
+            _launchEnabled = check.Checked;
+            SaveLaunchEnabled(_launchEnabled);
+            _host?.ShowMessageToStatusLabel(this, _launchEnabled ? "NNDD-RE との起動連携: ON" : "NNDD-RE との起動連携: OFF");
         }
 
         /// <summary>NNDD-RE が受け付ける値の最大長 (超えると無視されるため送らない)</summary>
