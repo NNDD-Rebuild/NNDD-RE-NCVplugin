@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows7.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>NNDD-RE</AssemblyName>
+    <RootNamespace>NnddRe</RootNamespace>
+    <Platforms>AnyCPU;x64</Platforms>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- libs/ は NCV 付属 DLL (CI では公式サンプルから取得。ローカルでは scripts/fetch-libs を実行) -->
+    <Reference Include="NCV_Abstractions">
+      <HintPath>libs\NCV_Abstractions.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="NCV_Plugin">
+      <HintPath>libs\NCV_Plugin.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+</Project>
