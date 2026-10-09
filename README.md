@@ -7,6 +7,10 @@
   アドレスバーの `lv` / `co` / `ch` を使う (数字のみのユーザーID入力時は何もしない)。
 - NNDD-RE 側の「設定 > 生放送 > NCV 連携」と合わせると、NNDD-RE で開いた放送を NCV でも開ける。
   相互起動ループは `nndd-re-cmd://live/<id>?from=ncv` で防いでいる。
+- コメントを右クリック > 「NNDD-RE の NG に追加」で、選択中のコメントの
+  ユーザー ID / コメント (部分一致・完全一致) / コマンドを NNDD-RE の NG リストに追加する。
+  `nndd-re-cmd://ngAdd/<type>/<URLエンコードした値>` を呼ぶ (NNDD-RE 側の対応が必要)。
+  NCV 側の NG リストは変更しない (NCV のプラグイン API に NG 操作がないため、NCV → NNDD-RE の一方向)。
 
 ## 必要なもの
 - NCV α228 以上 (.NET 10 版)

@@ -1,13 +1,15 @@
 using System.Diagnostics;
 using System.Reflection;
 using System.Text.RegularExpressions;
+using NCV_Abstractions;
 using NCV_Plugin;
 
 namespace NnddRe
 {
     /// <summary>
     /// NNDD-RE 連携プラグイン。
-    /// NCV が放送に接続したとき、同じ放送を NNDD-RE の生放送プレイヤーで開く。
+    /// - NCV が放送に接続したとき、同じ放送を NNDD-RE の生放送プレイヤーで開く。
+    /// - コメントの右クリックメニューから、選択中コメントを NNDD-RE の NG リストに追加する。
     /// </summary>
     public class NnddRePlugin : IPlugin
     {
@@ -22,7 +24,7 @@ namespace NnddRe
         }
         public virtual string Name => "NNDD-RE";
         public virtual string Version => Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "";
-        public virtual string Description => "放送に接続したとき NNDD-RE の生放送プレイヤーでも同じ放送を開きます。";
+        public virtual string Description => "放送に接続したとき NNDD-RE の生放送プレイヤーでも同じ放送を開きます。コメントの右クリックから NNDD-RE の NG リストにも追加できます。";
         public virtual bool HasSettingForm => false;
         public virtual void ShowSettingForm() { }
         public virtual bool IsAutoRun => true;
@@ -32,6 +34,56 @@ namespace NnddRe
         {
             if (_host == null) return;
             _host.LiveConnected += (_, _) => OpenInNnddRe();
+            AddNgMenu();
+        }
+
+        /// <summary>NNDD-RE が受け付ける値の最大長 (超えると無視されるため送らない)</summary>
+        private const int NgValueMaxLength = 500;
+
+        /// <summary>コメント右クリックに「NNDD-RE の NG に追加」を足す</summary>
+        private void AddNgMenu()
+        {
+            var root = new ToolStripMenuItem("NNDD-RE の NG に追加");
+            root.DropDownItems.Add(NgItem("ユーザー (ID)", "userId", c => c.UserId));
+            root.DropDownItems.Add(NgItem("コメント (部分一致)", "word", c => c.Content));
+            root.DropDownItems.Add(NgItem("コメント (完全一致)", "wordExact", c => c.Content));
+            root.DropDownItems.Add(NgItem("コマンド", "command", c => c.Mail));
+            _host?.SetRightclickMenuItemsInCommentDGV(this, new[] { root });
+        }
+
+        private ToolStripMenuItem NgItem(string text, string type, Func<IChatInfo, string?> pick)
+        {
+            var item = new ToolStripMenuItem(text);
+            item.Click += (_, _) =>
+            {
+                try
+                {
+                    var chat = _host?.GetSelectedCommentData();
+                    var value = chat == null ? null : pick(chat)?.Trim();
+                    if (string.IsNullOrEmpty(value))
+                    {
+                        _host?.ShowMessageToStatusLabel(this, "NG に追加できる値がありません");
+                        return;
+                    }
+                    if (value.Length > NgValueMaxLength)
+                    {
+                        _host?.ShowMessageToStatusLabel(this, $"長すぎるため NG に追加できません ({NgValueMaxLength} 文字まで)");
+                        return;
+                    }
+                    // 値に '/' を含んでも 3 区切り目として扱われるよう、必ずエンコードする
+                    Process.Start(new ProcessStartInfo
+                    {
+                        FileName = $"nndd-re-cmd://ngAdd/{type}/{Uri.EscapeDataString(value)}",
+                        UseShellExecute = true
+                    });
+                    _host?.ShowMessageToStatusLabel(this, $"NNDD-RE の NG に送信しました: {text}");
+                }
+                catch (Exception ex)
+                {
+                    _host?.ShowMessageToStatusLabel(this, $"NNDD-RE 連携エラー: {ex.Message}", Color.Red);
+                }
+            };
+            return item;
         }
 
         /// <summary>
