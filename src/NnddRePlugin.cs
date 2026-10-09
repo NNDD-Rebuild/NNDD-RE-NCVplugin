@@ -28,7 +28,8 @@ namespace NnddRe
         public virtual string Description => "放送に接続したとき NNDD-RE の生放送プレイヤーでも同じ放送を開きます。コメントの右クリックから NNDD-RE の NG リストにも追加できます。";
         public virtual bool HasSettingForm => true;
         public virtual bool IsAutoRun => true;
-        public virtual void Run() { }
+        /// <summary>NCV の「プラグイン」メニューから選ばれたとき。起動連携の設定ダイアログを開く</summary>
+        public virtual void Run() => ShowSettingForm();
 
         public virtual void AutoRun()
         {
@@ -39,6 +40,94 @@ namespace NnddRe
                 if (_launchEnabled) OpenInNnddRe();
             };
             AddNgMenu();
+            AttachLaunchMenu();
+        }
+
+        private ToolStripMenuItem? _launchMenuItem;
+        private bool _syncingMenu;
+
+        /// <summary>
+        /// 「プラグイン」メニューの NNDD-RE 項目に「起動連携」のチェック項目をぶら下げる。
+        /// IPluginHost にホストのメニューを触る API がないため、MainForm の MenuStrip から項目を探す (非公式)。
+        /// 見つからないときは Run() / ShowSettingForm() の設定ダイアログで切り替える。
+        /// </summary>
+        private void AttachLaunchMenu()
+        {
+            try
+            {
+                var form = _host?.MainForm;
+                if (form == null) return;
+                if (TryAttachLaunchMenu(form)) return;
+
+                // 項目が実行時に作られる場合に備え、トップメニューを開いたときにも再試行する
+                foreach (var strip in AllMenuStrips(form))
+                {
+                    foreach (ToolStripItem top in strip.Items)
+                    {
+                        if (top is not ToolStripMenuItem topItem) continue;
+                        topItem.DropDownOpening += (_, _) =>
+                        {
+                            if (_launchMenuItem == null) TryAttachLaunchMenu(form);
+                        };
+                    }
+                }
+            }
+            catch
+            {
+                // 失敗してもダイアログ方式で設定できるため無視する
+            }
+        }
+
+        private static IEnumerable<MenuStrip> AllMenuStrips(Form form)
+        {
+            var result = new List<MenuStrip>();
+            void Walk(Control c)
+            {
+                if (c is MenuStrip ms) result.Add(ms);
+                foreach (Control child in c.Controls) Walk(child);
+            }
+            Walk(form);
+            if (form.MainMenuStrip != null && !result.Contains(form.MainMenuStrip)) result.Add(form.MainMenuStrip);
+            return result;
+        }
+
+        private bool TryAttachLaunchMenu(Form form)
+        {
+            if (_launchMenuItem != null) return true;
+            foreach (var strip in AllMenuStrips(form))
+            {
+                var target = FindMenuItem(strip.Items, Name);
+                if (target == null) continue;
+
+                var item = new ToolStripMenuItem("NNDD-RE と起動連携 (放送接続時に NNDD-RE でも開く)")
+                {
+                    CheckOnClick = true,
+                    Checked = _launchEnabled
+                };
+                item.CheckedChanged += (_, _) =>
+                {
+                    if (_syncingMenu) return;
+                    _launchEnabled = item.Checked;
+                    SaveLaunchEnabled(_launchEnabled);
+                    _host?.ShowMessageToStatusLabel(this, _launchEnabled ? "NNDD-RE との起動連携: ON" : "NNDD-RE との起動連携: OFF");
+                };
+                target.DropDownItems.Add(item);
+                _launchMenuItem = item;
+                return true;
+            }
+            return false;
+        }
+
+        private static ToolStripMenuItem? FindMenuItem(ToolStripItemCollection items, string text)
+        {
+            foreach (ToolStripItem it in items)
+            {
+                if (it is not ToolStripMenuItem mi) continue;
+                if (mi.Text.Replace("&", "").Trim() == text) return mi;
+                var found = FindMenuItem(mi.DropDownItems, text);
+                if (found != null) return found;
+            }
+            return null;
         }
 
         /// <summary>放送接続時に NNDD-RE でも開く (起動連携) か。既定は ON</summary>
@@ -101,6 +190,12 @@ namespace NnddRe
             if (form.ShowDialog(owner) != DialogResult.OK) return;
             _launchEnabled = check.Checked;
             SaveLaunchEnabled(_launchEnabled);
+            if (_launchMenuItem != null)
+            {
+                _syncingMenu = true;
+                _launchMenuItem.Checked = _launchEnabled;
+                _syncingMenu = false;
+            }
             _host?.ShowMessageToStatusLabel(this, _launchEnabled ? "NNDD-RE との起動連携: ON" : "NNDD-RE との起動連携: OFF");
         }
 
