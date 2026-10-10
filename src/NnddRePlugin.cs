@@ -37,10 +37,11 @@ namespace NnddRe
             _launchEnabled = LoadLaunchEnabled();
             _host.LiveConnected += (_, _) =>
             {
-                if (_launchEnabled) OpenInNnddRe();
+                if (_launchEnabled && !ConsumeArgLaunch()) OpenInNnddRe();
             };
             AddNgMenu();
             AttachLaunchMenu();
+            _argLiveId = ReadLiveIdFromCommandLine();
         }
 
         private ToolStripMenuItem? _launchMenuItem;
@@ -249,37 +250,77 @@ namespace NnddRe
         }
 
         /// <summary>
-        /// アドレスバー (tsComboBox_LiveNum) の入力から放送番号を取り、NNDD-RE で開く。
-        /// IPluginHost に放送番号を返す API がないための代替。取れない場合 (数字のみのユーザーID等) は何もしない。
+        /// NCV の起動引数で放送を指定されていた場合のその放送番号 (NNDD-RE が NCV を起動したときの引数)。
+        /// この接続では NNDD-RE を再び開かない (相互起動ループ防止)
         /// </summary>
+        private string? _argLiveId;
+
+        private static string? ReadLiveIdFromCommandLine()
+        {
+            try
+            {
+                foreach (var arg in Environment.GetCommandLineArgs().Skip(1))
+                {
+                    var m = LiveIdRe.Match(arg);
+                    if (m.Success) return m.Value;
+                }
+            }
+            catch
+            {
+                // 引数が読めなければ従来どおり NNDD-RE を開く
+            }
+            return null;
+        }
+
+        /// <summary>起動引数で指定された放送への最初の接続なら、NNDD-RE を開かないよう true を返す (1 回だけ)</summary>
+        private bool ConsumeArgLaunch()
+        {
+            var expected = _argLiveId;
+            if (expected == null) return false;
+            if (ReadLiveId() != expected) return false;
+            _argLiveId = null;
+            return true;
+        }
+
+        /// <summary>
+        /// アドレスバー (tsComboBox_LiveNum) の入力から放送番号を取る。
+        /// IPluginHost に放送番号を返す API がないための代替。取れない場合 (数字のみのユーザーID等) は null
+        /// </summary>
+        private string? ReadLiveId()
+        {
+            var form = _host?.MainForm;
+            if (form == null) return null;
+
+            string? text = null;
+            void Read()
+            {
+                foreach (var strip in form.Controls.Find("toolStrip1", true).OfType<ToolStrip>())
+                {
+                    if (strip.Items.Find("tsComboBox_LiveNum", true).FirstOrDefault() is ToolStripComboBox cb)
+                        text = cb.Text;
+                }
+            }
+            if (form.InvokeRequired) form.Invoke(Read); else Read();
+
+            var m = text == null ? null : LiveIdRe.Match(text);
+            return m != null && m.Success ? m.Value : null;
+        }
+
+        /// <summary>放送に接続したとき、同じ放送を NNDD-RE で開く。放送番号が取れない場合は何もしない</summary>
         private void OpenInNnddRe()
         {
             try
             {
-                var form = _host?.MainForm;
-                if (form == null) return;
-
-                string? text = null;
-                void Read()
-                {
-                    foreach (var strip in form.Controls.Find("toolStrip1", true).OfType<ToolStrip>())
-                    {
-                        if (strip.Items.Find("tsComboBox_LiveNum", true).FirstOrDefault() is ToolStripComboBox cb)
-                            text = cb.Text;
-                    }
-                }
-                if (form.InvokeRequired) form.Invoke(Read); else Read();
-
-                var m = text == null ? null : LiveIdRe.Match(text);
-                if (m == null || !m.Success) return;
+                var id = ReadLiveId();
+                if (id == null) return;
 
                 // from=ncv: NNDD-RE 側で NCV を再起動しないための目印 (相互起動ループ防止)
                 Process.Start(new ProcessStartInfo
                 {
-                    FileName = $"nndd-re-cmd://live/{m.Value}?from=ncv",
+                    FileName = $"nndd-re-cmd://live/{id}?from=ncv",
                     UseShellExecute = true
                 });
-                _host?.ShowMessageToStatusLabel(this, $"NNDD-RE で {m.Value} を開きました");
+                _host?.ShowMessageToStatusLabel(this, $"NNDD-RE で {id} を開きました");
             }
             catch (Exception ex)
             {
