@@ -1,15 +1,13 @@
 # NNDD-RE-NCVplugin
 
-[NNDD-RE](https://github.com/NNDD-Rebuild/NNDD-RE) 連携用の NCV (ニコ生コメントビューア) プラグイン。プラグイン名は `NNDD-RE`。
+[NNDD-RE](https://github.com/NNDD-Rebuild/NNDD-RE) 連携用の NCV (ニコ生コメントビューア) プラグイン。
 
 ## 機能
 - NCV が放送に接続したとき、同じ放送を NNDD-RE の生放送プレイヤーで開く。
   アドレスバーの `lv` / `co` / `ch` を使う (数字のみのユーザーID入力時は何もしない)。
 - NNDD-RE 側の「設定 > 生放送 > NCV 連携」と合わせると、NNDD-RE で開いた放送を NCV でも開ける。
-  相互起動ループは `nndd-re-cmd://live/<id>?from=ncv` で防いでいる。
 - メインメニューの「プラグイン」の NNDD-RE にぶら下がる「NNDD-RE と起動連携」のチェックで、
   NCV → NNDD-RE の起動連携 (上 1 つ目) を ON / OFF できる。既定は ON。
-  ホストのメニューを探して項目を足す方式 (非公式) のため、項目が出ない場合は
   「プラグイン」または「設定」から NNDD-RE を選ぶと開く設定ダイアログで切り替える。
   設定は NCV のアプリケーション設定フォルダの `NNDD-RE.json` に保存する。
   NNDD-RE → NCV の起動は NNDD-RE 側の設定で切り替える。
@@ -20,7 +18,7 @@
 
 ## 必要なもの
 - NCV α228 以上 (.NET 10 版)
-- NNDD-RE (`nndd-re-cmd://` プロトコルが登録されていること。一度起動すれば登録される)
+- NNDD-RE v1.1.0-beta.5以上(`nndd-re-cmd://` プロトコルが登録されていること。一度起動すれば登録される)
 
 ## インストール
 1. 最新の[Releases](https://github.com/NNDD-Rebuild/NNDD-RE-NCVplugin/releases) から `NNDD-RE.dll` を取得
